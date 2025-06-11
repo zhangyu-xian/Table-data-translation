@@ -1,7 +1,7 @@
 import pandas as pd
 from openai import OpenAI
 import numpy as np
-import config
+import configs
 import promptText
 import os
 import json5
@@ -617,7 +617,7 @@ def scoreByLLM(dataFileFold):
 
 
             print('********************using llm evaluate effect****************')
-            client = OpenAI(api_key=config.deepseek_api_key,
+            client = OpenAI(api_key=configs.deepseek_api_key,
                             base_url="https://api.deepseek.com")
             score_input_text = promptText.promptStructureScoreText
             score_input_text = score_input_text.replace('{xml_ground_truth}', groundTruth_xml_file_string)
@@ -637,7 +637,7 @@ def scoreByLLM(dataFileFold):
             structure_score = structure_json_string_score['结构相似性']
 
 
-            client1 = OpenAI(api_key=config.deepseek_api_key,
+            client1 = OpenAI(api_key=configs.deepseek_api_key,
                             base_url="https://api.deepseek.com")
             content_score_input_text = promptText.promptContentScoreText
             content_score_input_text = content_score_input_text.replace('{xml_ground_truth}', groundTruth_xml_file_string)
