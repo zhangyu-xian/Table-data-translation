@@ -1,6 +1,9 @@
 import pandas as pd
-from transTableData.CotForTable.extract_table_from_img \
-    import extractFromImage, extract_text_from_image
+from openai import OpenAI
+import numpy as np
+import config
+import promptText
+import os
 import json5
 import re
 import ast
@@ -11,6 +14,7 @@ import csv
 from xml.dom.minidom import parse
 from zss import simple_distance, Node
 from collections import defaultdict
+from pathlib import Path
 
 
 def clean_dataframe(df):
@@ -570,3 +574,89 @@ def replace_roman_unicode_with_chinese(text):
             return result
 
     return re.sub(roman_pattern, replace_match, text)
+
+
+def calFileFoldSimilarity(dataFileFold):
+    folder_path = Path(dataFileFold)
+    # 获取所有子文件夹名
+    subfolders = [f.name for f in folder_path.iterdir() if f.is_dir()]
+    text_similarity_list, tree_simi_list = [], []
+    for fileFolder in subfolders:
+        testFilePath = dataFileFold + '/' + fileFolder + '/' + 'experiment-test'
+        groundTruthFilePath = dataFileFold + '/' + fileFolder + '/' + 'experiment-groundTruth'
+        # get the xml file list->experiment-groundTruth
+        xml_file = [f for f in os.listdir(groundTruthFilePath) if f.endswith('.xml')]
+        # groundTruth中所有xml文件的文件名
+        for i in range(0, len(xml_file)):
+            test_xml_file = testFilePath + '/' + xml_file[i]
+            groundTruth_xml_file = groundTruthFilePath + '/' + xml_file[i]
+            test_xml_file_string = readXML2String(test_xml_file)
+            groundTruth_xml_file_string = readXML2String(groundTruth_xml_file)
+            text_similarity, tree_simi = cal_simi(test_xml_file_string, groundTruth_xml_file_string)
+            text_similarity_list.append(float(text_similarity))
+            tree_simi_list.append(tree_simi)
+
+    return text_similarity_list, tree_simi_list
+
+def scoreByLLM(dataFileFold):
+    folder_path = Path(dataFileFold)
+    # 获取所有子文件夹名
+    subfolders = [f.name for f in folder_path.iterdir() if f.is_dir()]
+    structure_score_list, content_score_list = [], []
+    for fileFolder in subfolders:
+        testFilePath = dataFileFold + '/' + fileFolder + '/' + 'experiment-test'
+        groundTruthFilePath = dataFileFold + '/' + fileFolder + '/' + 'experiment-groundTruth'
+        # get the xml file list->experiment-groundTruth
+        xml_file = [f for f in os.listdir(groundTruthFilePath) if f.endswith('.xml')]
+        # groundTruth中所有xml文件的文件名
+        for i in range(0, len(xml_file)):
+            test_xml_file = testFilePath + '/' + xml_file[i]
+            groundTruth_xml_file = groundTruthFilePath + '/' + xml_file[i]
+            test_xml_file_string = readXML2String(test_xml_file)
+            groundTruth_xml_file_string = readXML2String(groundTruth_xml_file)
+
+
+            print('********************using llm evaluate effect****************')
+            client = OpenAI(api_key=config.deepseek_api_key,
+                            base_url="https://api.deepseek.com")
+            score_input_text = promptText.promptStructureScoreText
+            score_input_text = score_input_text.replace('{xml_ground_truth}', groundTruth_xml_file_string)
+            score_input_text = score_input_text.replace('{xml_predicated}', test_xml_file_string)
+            # print(input_text)
+            # 判断第1行还是第1列是表头信息
+            conversation = [{"role": "system", "content": promptText.sysScorePromptText},
+                            {"role": "user", "content": score_input_text}]
+            response = client.chat.completions.create(
+                # model="gpt-4o-mini",
+                # model="gemini-2.0-flash",
+                model="deepseek-chat",
+                messages=conversation
+            )
+            score_response = response.choices[0].message.content
+            structure_json_string_score = extract_json_from_text(score_response)[0]
+            structure_score = structure_json_string_score['结构相似性']
+
+
+            client1 = OpenAI(api_key=config.deepseek_api_key,
+                            base_url="https://api.deepseek.com")
+            content_score_input_text = promptText.promptContentScoreText
+            content_score_input_text = content_score_input_text.replace('{xml_ground_truth}', groundTruth_xml_file_string)
+            content_score_input_text = content_score_input_text.replace('{xml_predicated}', test_xml_file_string)
+            # print(input_text)
+            # 判断第1行还是第1列是表头信息
+            conversation1 = [{"role": "system", "content": promptText.sysScorePromptText},
+                            {"role": "user", "content": content_score_input_text}]
+            response = client1.chat.completions.create(
+                # model="gpt-4o-mini",
+                # model="gemini-2.0-flash",
+                model="deepseek-chat",
+                messages=conversation1
+            )
+            score_response = response.choices[0].message.content
+            content_json_string_score = extract_json_from_text(score_response)[0]
+            content_score = content_json_string_score['内容相似性']
+
+
+            structure_score_list.append(float(structure_score))
+            content_score_list.append(float(content_score))
+    return structure_score_list, content_score_list
