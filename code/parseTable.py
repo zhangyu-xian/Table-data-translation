@@ -21,7 +21,7 @@ def augments():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dataFolders", type=str,
                         default=
-                        'E:/pythonProject/transByML/transTableData/data/image_table/hydraulicTunnelDesignCode')
+                        '***/transTableData/data/image_table/hydraulicTunnelDesignCode')
     args = parser.parse_args()
     return args
 
