@@ -22,8 +22,8 @@ model_name = 'deepseek_model'  # gpt_model  gemini_model
 gpt_model_name = 'gpt-3.5-turbo'
 deepseek_name = "deepseek-chat"
 gemini_model_name = "gemini-2.0-flash"
-deepseek_url = "https://api.deepseek.com"
-gemini_url = "https://generativelanguage.googleapis.com/v1beta/"
+deepseek_url = "***"
+gemini_url = "***"
 GEMINI_KEYS = "***"
 
 
